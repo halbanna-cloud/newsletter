@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تعديل النشرة</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --red:#D9191A;
+  --dark:#0F0F0F;
+  --muted:#6B6B6B;
+  --border:#E5E3DF;
+  --bg:#F2F1EE;
+}
+
+body{
+  font-family:'IBM Plex Sans Arabic',Arial,sans-serif;
+  background:var(--bg);
+  color:var(--dark);
+  min-height:100vh;
+}
+
+/* ── EDITOR TOOLBAR ── */
+#toolbar{
+  position:fixed;top:0;left:0;right:0;
+  z-index:1000;
+  background:var(--dark);
+  height:60px;
+  display:flex;align-items:center;
+  padding:0 24px;gap:12px;
+  border-bottom:3px solid var(--red);
+}
+
+.toolbar-brand{font-size:13px;font-weight:700;color:white;margin-left:auto;}
+.toolbar-issue{font-size:11px;color:rgba(255,255,255,0.35);margin-right:4px;}
+
+.toolbar-sep{width:1px;height:28px;background:rgba(255,255,255,0.1);margin:0 4px;}
+
+.t-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 16px;border-radius:8px;
+  font-size:12px;font-weight:600;cursor:pointer;
+  border:none;font-family:inherit;transition:all 0.2s;
+  white-space:nowrap;
+}
+.t-btn-ghost{background:rgba(255,255,255,0.08);color:white;}
+.t-btn-ghost:hover{background:rgba(255,255,255,0.15);}
+.t-btn-red{background:var(--red);color:white;}
+.t-btn-red:hover{background:#bf1515;}
+.t-btn-green{background:#16a34a;color:white;}
+.t-btn-green:hover{background:#15803d;}
+.t-btn-green:disabled{background:#6B6B6B;cursor:not-allowed;}
+
+.mode-badge{
+  padding:5px 12px;border-radius:20px;
+  font-size:11px;font-weight:700;
+  background:rgba(217,25,26,0.2);color:#ff8080;
+  letter-spacing:0.08em;
+}
+.mode-badge.viewing{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);}
+
+/* ── SAVE STATUS ── */
+#saveStatus{
+  font-size:11px;color:rgba(255,255,255,0.4);
+  display:flex;align-items:center;gap:6px;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.2);}
+.dot.saved{background:#22c55e;}
+.dot.unsaved{background:#f59e0b;}
+.dot.saving{background:#60a5fa;animation:pulse 0.8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* ── CONTENT AREA ── */
+#contentWrap{
+  padding-top:60px;
+  display:flex;
+  justify-content:center;
+}
+
+#newsletterFrame{
+  width:100%;
+  max-width:680px;
+  margin:32px 0 80px;
+  background:white;
+  border:1px solid var(--border);
+  border-radius:4px;
+  box-shadow:0 2px 40px rgba(0,0,0,0.07);
+  min-height:400px;
+}
+
+/* ── EDIT OVERLAY (shown on editable elements) ── */
+.mt-editable{
+  position:relative;
+  cursor:text;
+  outline:none;
+  transition:background 0.15s;
+  border-radius:3px;
+}
+.mt-editable:hover{background:rgba(217,25,26,0.04);}
+.mt-editable:focus{
+  outline:2px solid var(--red);
+  outline-offset:2px;
+  background:rgba(217,25,26,0.03);
+}
+.mt-img-wrap{
+  position:relative;
+  cursor:pointer;
+}
+.mt-img-wrap::after{
+  content:'🖼 تغيير الصورة';
+  position:absolute;inset:0;
+  background:rgba(217,25,26,0.85);
+  color:white;font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity 0.2s;
+  border-radius:inherit;
+  font-family:'IBM Plex Sans Arabic',Arial,sans-serif;
+}
+.mt-img-wrap:hover::after{opacity:1;}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
+  background:var(--dark);color:white;
+  padding:12px 24px;border-radius:12px;
+  font-size:13px;font-weight:600;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.3s,transform 0.3s;
+  z-index:9999;white-space:nowrap;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+/* ── MODAL ── */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);
+  z-index:2000;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.2s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{
+  background:white;border-radius:16px;padding:32px;
+  width:440px;max-width:calc(100vw - 32px);
+}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:20px;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all 0.2s;}
+.btn-outline{background:white;color:var(--dark);border:1px solid var(--border);}
+.btn-outline:hover{background:var(--bg);}
+.btn-red{background:var(--red);color:white;}
+.btn-red:hover{background:#bf1515;}
+.publish-info{background:#F7F7F5;border-radius:8px;padding:14px;font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:4px;}
+.publish-info strong{color:var(--dark);}
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <button class="t-btn t-btn-ghost" onclick="goBack()">← رجوع</button>
+  <div class="toolbar-sep"></div>
+  <span class="mode-badge" id="modeBadge">وضع التعديل</span>
+  <div class="toolbar-sep"></div>
+  <div id="saveStatus"><span class="dot" id="statusDot"></span><span id="statusText">—</span></div>
+  <div style="flex:1"></div>
+  <div class="toolbar-brand">
+    <span class="toolbar-issue" id="toolbarIssue"></span>
+    MAD TOMATO
+  </div>
+  <div class="toolbar-sep"></div>
+  <button class="t-btn t-btn-ghost" onclick="previewMode()" id="previewBtn">👁 معاينة</button>
+  <button class="t-btn t-btn-ghost" onclick="editMode()" id="editBtn" style="display:none;">✏️ تعديل</button>
+  <button class="t-btn t-btn-green" onclick="openPublish()" id="publishBtn">🚀 نشر على GitHub</button>
+</div>
+
+<!-- CONTENT -->
+<div id="contentWrap">
+  <div id="newsletterFrame">
+    <div style="padding:60px;text-align:center;color:#999;">
+      <div style="font-size:32px;margin-bottom:16px;">⏳</div>
+      <div>جاري تحميل النشرة...</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- Hidden file input for image upload -->
+<input type="file" id="imgInput" accept="image/*" style="display:none">
+
+<!-- Publish Modal -->
+<div class="modal-overlay" id="publishModal">
+  <div class="modal">
+    <div class="modal-title">🚀 نشر على GitHub</div>
+    <div class="publish-info">
+      <strong>المستودع:</strong> <span id="pubRepo">—</span><br>
+      <strong>الفرع:</strong> <span id="pubBranch">main</span><br>
+      <strong>الملف:</strong> <span id="pubFile">—</span>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-top:12px;line-height:1.7;">
+      بعد النشر، سيظهر الرابط:<br>
+      <code style="background:#F7F7F5;padding:2px 8px;border-radius:4px;font-size:12px;" id="pubURL">—</code>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closePublish()">إلغاء</button>
+      <button class="btn btn-red" onclick="publishToGitHub()" id="pubConfirmBtn">نشر الآن</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// NEWSLETTER EDITOR — مادتوميتو
+// ══════════════════════════════════════════════════════════════
+
+const params = new URLSearchParams(location.search);
+const NL_ID  = params.get('id') || 'feb-2026';
+const IS_NEW = params.get('new') === '1';
+
+const CFG_KEY     = 'mt_newsletter_config';
+const NL_LIST_KEY = 'mt_newsletters';
+const NL_CONTENT_KEY = `mt_nl_content_${NL_ID}`;
+
+let isEditing = true;
+let isDirty   = false;
+let currentImgEl = null;
+
+// ── UTILS ─────────────────────────────────────────────────────
+function getCfg(){
+  try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'{}'); }
+  catch{ return {}; }
+}
+
+function getNLMeta(){
+  try{
+    const list = JSON.parse(localStorage.getItem(NL_LIST_KEY)||'[]');
+    return list.find(n => n.id === NL_ID) || {};
+  } catch{ return {}; }
+}
+
+function toast(msg, duration=2500){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function setStatus(state){
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className = 'dot ' + state;
+  text.textContent = {
+    saved:   'محفوظ',
+    unsaved: 'تعديلات غير محفوظة',
+    saving:  'جاري الحفظ...',
+  }[state] || '—';
+}
+
+// ── LOAD NEWSLETTER ───────────────────────────────────────────
+async function loadNewsletter(){
+  const meta = getNLMeta();
+  document.getElementById('toolbarIssue').textContent = meta.issue || NL_ID;
+
+  // Try to load saved content first
+  const savedHTML = localStorage.getItem(NL_CONTENT_KEY);
+
+  if(savedHTML){
+    injectContent(savedHTML);
+    setStatus('saved');
+    return;
+  }
+
+  // For feb-2026, load the actual newsletter file
+  if(NL_ID === 'feb-2026'){
+    try{
+      const res = await fetch('newsletter_feb2026.html');
+      if(res.ok){
+        const html = await res.text();
+        // Extract body content
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        const content = bodyMatch ? bodyMatch[1] : html;
+        injectContent(content);
+        setStatus('saved');
+        return;
+      }
+    } catch(e){}
+  }
+
+  // New newsletter — show empty template
+  injectContent(buildEmptyTemplate(meta));
+  setStatus('saved');
+}
+
+function injectContent(html){
+  const frame = document.getElementById('newsletterFrame');
+  frame.innerHTML = html;
+
+  // Run any scripts inside
+  frame.querySelectorAll('script').forEach(s => {
+    const ns = document.createElement('script');
+    ns.textContent = s.textContent;
+    document.body.appendChild(ns);
+  });
+
+  // Make editable
+  setTimeout(makeEditable, 100);
+}
+
+// ── MAKE EDITABLE ─────────────────────────────────────────────
+function makeEditable(){
+  if(!isEditing) return;
+  const frame = document.getElementById('newsletterFrame');
+
+  // Text elements
+  const textSelectors = [
+    'h1','h2','h3','h4',
+    'p','.sec-title','.sec-intro-text','.intro-greeting',
+    '.card-t','.card-b','.hl-title','.hl-body',
+    '.ep-t','.ep-g','.g-text','.g-sub','.g-sub',
+    '.stat-num','.stat-name','.jood-title','.jood-desc',
+    '.cm-title','.cm-body','.pull-quote .pq-text',
+    '[class*="title"],[class*="body"],[class*="label"],[class*="desc"]'
+  ];
+
+  frame.querySelectorAll(textSelectors.join(',')).forEach(el => {
+    if(el.closest('script,style,nav')) return;
+    if(el.children.length > 2) return; // skip containers
+    if(!el.classList.contains('mt-editable')){
+      el.classList.add('mt-editable');
+      el.setAttribute('contenteditable','true');
+      el.setAttribute('spellcheck','false');
+      el.addEventListener('input', onEdit);
+      el.addEventListener('keydown', e => {
+        if(e.key === 'Enter' && !e.shiftKey){
+          e.preventDefault();
+          el.blur();
+        }
+      });
+    }
+  });
+
+  // Images
+  frame.querySelectorAll('img').forEach(img => {
+    if(img.closest('.mt-img-wrap')) return;
+    if(img.width < 40 || img.height < 40) return; // skip tiny icons
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-img-wrap';
+    wrap.style.cssText = img.style.cssText;
+    img.parentNode.insertBefore(wrap, img);
+    wrap.appendChild(img);
+    wrap.addEventListener('click', () => openImgPicker(img));
+  });
+}
+
+function onEdit(){
+  isDirty = true;
+  setStatus('unsaved');
+  autoSave();
+}
+
+// ── AUTO SAVE ─────────────────────────────────────────────────
+let saveTimer;
+function autoSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveLocal, 1500);
+}
+
+function saveLocal(){
+  setStatus('saving');
+  const html = document.getElementById('newsletterFrame').innerHTML;
+  localStorage.setItem(NL_CONTENT_KEY, html);
+  isDirty = false;
+  setStatus('saved');
+}
+
+// ── IMAGE PICKER ──────────────────────────────────────────────
+function openImgPicker(imgEl){
+  currentImgEl = imgEl;
+  document.getElementById('imgInput').click();
+}
+
+document.getElementById('imgInput').addEventListener('change', function(){
+  const file = this.files[0];
+  if(!file || !currentImgEl) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentImgEl.src = e.target.result;
+    onEdit();
+    toast('✅ تم تغيير الصورة');
+  };
+  reader.readAsDataURL(file);
+  this.value = '';
+});
+
+// ── PREVIEW / EDIT MODES ──────────────────────────────────────
+function editMode(){
+  isEditing = true;
+  document.getElementById('modeBadge').className = 'mode-badge';
+  document.getElementById('modeBadge').textContent = 'وضع التعديل';
+  document.getElementById('editBtn').style.display = 'none';
+  document.getElementById('previewBtn').style.display = 'flex';
+  makeEditable();
+}
+
+function previewMode(){
+  saveLocal();
+  isEditing = false;
+  document.getElementById('modeBadge').className = 'mode-badge viewing';
+  document.getElementById('modeBadge').textContent = 'معاينة';
+  document.getElementById('previewBtn').style.display = 'none';
+  document.getElementById('editBtn').style.display = 'flex';
+  // Remove contenteditable
+  document.querySelectorAll('.mt-editable').forEach(el => {
+    el.removeAttribute('contenteditable');
+    el.classList.remove('mt-editable');
+  });
+}
+
+// ── PUBLISH ───────────────────────────────────────────────────
+function openPublish(){
+  saveLocal();
+  const cfg = getCfg();
+  if(!cfg.token || !cfg.repo){
+    toast('⚠️ اضبط إعدادات GitHub أولاً من الصفحة الرئيسية');
+    return;
+  }
+  const file = `newsletters/${NL_ID}.html`;
+  const url  = `https://${cfg.repo.split('/')[0]}.github.io/${cfg.repo.split('/')[1]}/${file}`;
+  document.getElementById('pubRepo').textContent   = cfg.repo;
+  document.getElementById('pubBranch').textContent = cfg.branch || 'main';
+  document.getElementById('pubFile').textContent   = file;
+  document.getElementById('pubURL').textContent    = url;
+  document.getElementById('publishModal').classList.add('open');
+}
+
+function closePublish(){ document.getElementById('publishModal').classList.remove('open'); }
+
+async function publishToGitHub(){
+  const cfg = getCfg();
+  const btn = document.getElementById('pubConfirmBtn');
+  btn.textContent = 'جاري النشر...';
+  btn.disabled = true;
+
+  try{
+    const content = document.getElementById('newsletterFrame').innerHTML;
+    // Build full HTML page
+    const fullHTML = buildFullPage(content);
+    const encoded  = btoa(unescape(encodeURIComponent(fullHTML)));
+    const path     = `newsletters/${NL_ID}.html`;
+    const [owner, repo] = cfg.repo.split('/');
+
+    // Check if file exists (to get SHA for update)
+    let sha = null;
+    try{
+      const check = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        { headers:{ 'Authorization':`token ${cfg.token}` } }
+      );
+      if(check.ok){ const j = await check.json(); sha = j.sha; }
+    } catch{}
+
+    const body = {
+      message: `نشرة ${getNLMeta().issue || NL_ID} — تحديث`,
+      content: encoded,
+      branch:  cfg.branch || 'main',
+    };
+    if(sha) body.sha = sha;
+
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+      {
+        method:'PUT',
+        headers:{
+          'Authorization':`token ${cfg.token}`,
+          'Content-Type':'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if(res.ok){
+      toast('🎉 تم النشر بنجاح على GitHub!', 3000);
+      closePublish();
+      // Update meta
+      updateMeta({ published:true, publishedAt: new Date().toLocaleDateString('ar-SA') });
+    } else {
+      const err = await res.json();
+      toast(`❌ خطأ: ${err.message}`, 4000);
+    }
+  } catch(e){
+    toast(`❌ ${e.message}`, 4000);
+  }
+
+  btn.textContent = 'نشر الآن';
+  btn.disabled = false;
+}
+
+function updateMeta(changes){
+  try{
+    const list = JSON.parse(localStorage.getItem(NL_LIST_KEY)||'[]');
+    const idx  = list.findIndex(n => n.id === NL_ID);
+    if(idx >= 0) Object.assign(list[idx], changes);
+    localStorage.setItem(NL_LIST_KEY, JSON.stringify(list));
+  } catch{}
+}
+
+// ── BUILD FULL PAGE ───────────────────────────────────────────
+function buildFullPage(bodyContent){
+  return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نشرة مادتوميتو — ${getNLMeta().issue || NL_ID}</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;background:#F2F1EE;font-family:'IBM Plex Sans Arabic',Arial,sans-serif;">
+<div style="max-width:680px;margin:32px auto;background:white;border:1px solid #E5E3DF;border-radius:4px;box-shadow:0 2px 40px rgba(0,0,0,0.07);">
+${bodyContent}
+</div>
+</body>
+</html>`;
+}
+
+// ── EMPTY TEMPLATE ────────────────────────────────────────────
+function buildEmptyTemplate(meta){
+  return `
+    <div style="background:#0F0F0F;padding:32px 48px;text-align:center;border-bottom:3px solid #D9191A;">
+      <div style="font-size:11px;letter-spacing:0.2em;color:rgba(255,255,255,0.3);margin-bottom:10px;">MAD TOMATO GROUP · NEWSLETTER</div>
+      <div style="font-size:22px;font-weight:700;color:white;margin-bottom:6px;">مجموعة مادتوميتو الإعلامية</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.4);">نشرة أخبار ${meta.issue || ''}</div>
+    </div>
+    <div style="padding:40px 48px;border-bottom:1px solid #E5E3DF;">
+      <h1 style="font-size:36px;font-weight:700;color:#0F0F0F;margin-bottom:8px;">${meta.theme || 'عنوان العدد'}</h1>
+      <p style="font-size:15px;color:#6B6B6B;line-height:1.7;">اكتب مقدمة النشرة هنا...</p>
+    </div>
+    <div style="padding:40px 48px;text-align:center;color:#6B6B6B;">
+      <div style="font-size:48px;margin-bottom:16px;">✏️</div>
+      <div style="font-size:14px;">ابدأ بإضافة أقسام النشرة</div>
+    </div>`;
+}
+
+function goBack(){
+  if(isDirty) saveLocal();
+  window.location.href = 'index.html';
+}
+
+// Close modal on overlay click
+document.getElementById('publishModal').addEventListener('click', e => {
+  if(e.target.id === 'publishModal') closePublish();
+});
+
+// Keyboard shortcut: Cmd/Ctrl+S
+document.addEventListener('keydown', e => {
+  if((e.metaKey||e.ctrlKey) && e.key==='s'){
+    e.preventDefault();
+    saveLocal();
+    toast('💾 تم الحفظ');
+  }
+});
+
+// ── START ─────────────────────────────────────────────────────
+loadNewsletter();
+</script>
+</body>
+</html>
