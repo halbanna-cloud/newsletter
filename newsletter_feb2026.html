@@ -776,6 +776,152 @@ img { display: block; }
 </style>
 </head>
 <body>
+
+<!-- ══ EDIT TOOLBAR ══ -->
+<div id="mt-toolbar" style="
+  position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:#0F0F0F;height:56px;
+  display:flex;align-items:center;padding:0 20px;gap:10px;
+  border-bottom:3px solid #D9191A;
+  font-family:'IBM Plex Sans Arabic',Arial,sans-serif;
+">
+  <a href="index.html" style="color:rgba(255,255,255,0.5);text-decoration:none;font-size:12px;padding:6px 12px;border-radius:6px;background:rgba(255,255,255,0.08);">← رجوع</a>
+  <span style="width:1px;height:28px;background:rgba(255,255,255,0.1);"></span>
+  <span id="mt-mode" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;background:rgba(217,25,26,0.2);color:#ff8080;">✏️ وضع التعديل</span>
+  <span style="flex:1"></span>
+  <span id="mt-status" style="font-size:11px;color:rgba(255,255,255,0.3);">محفوظ</span>
+  <button onclick="mtPublish()" style="
+    background:#D9191A;color:white;border:none;
+    padding:8px 20px;border-radius:8px;
+    font-size:12px;font-weight:700;cursor:pointer;
+    font-family:inherit;
+  ">🚀 نشر</button>
+</div>
+<div style="height:56px;"></div>
+
+<!-- ══ PUBLISH MODAL ══ -->
+<div id="mt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;width:400px;max-width:calc(100vw - 32px);font-family:'IBM Plex Sans Arabic',Arial,sans-serif;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:20px;">🚀 نشر على GitHub</div>
+    <div id="mt-pub-info" style="background:#F2F1EE;border-radius:8px;padding:14px;font-size:12px;color:#6B6B6B;line-height:1.8;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="document.getElementById('mt-modal').style.display='none'" style="padding:8px 18px;border-radius:8px;border:1px solid #E5E3DF;background:white;cursor:pointer;font-family:inherit;font-size:13px;">إلغاء</button>
+      <button onclick="mtDoPublish()" id="mt-pub-btn" style="padding:8px 18px;border-radius:8px;border:none;background:#D9191A;color:white;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;">نشر الآن</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── MAD TOMATO EDITOR ──────────────────────────────────────────
+const MT_CFG = JSON.parse(localStorage.getItem('mt_newsletter_config')||'{}');
+const MT_ID  = 'feb-2026';
+let mtDirty = false;
+
+// Make text elements editable
+document.querySelectorAll('h1,h2,h3,h4,p,.sec-title,.sec-intro-text,.intro-greeting,.hl-title,.hl-body,.ep-t,.ep-g,.g-text,.g-sub,.stat-num,.stat-name,.jood-title,.jood-desc,.cm-title,.cm-body').forEach(el => {
+  if(el.closest('script,style,#mt-toolbar,#mt-modal')) return;
+  if(el.children.length > 3) return;
+  el.setAttribute('contenteditable','true');
+  el.style.cursor = 'text';
+  el.style.outline = 'none';
+  el.style.borderRadius = '3px';
+  el.style.transition = 'background 0.15s';
+  el.addEventListener('focus', () => el.style.background = 'rgba(217,25,26,0.04)');
+  el.addEventListener('blur',  () => el.style.background = '');
+  el.addEventListener('input', () => {
+    mtDirty = true;
+    document.getElementById('mt-status').textContent = 'تعديلات غير محفوظة';
+    document.getElementById('mt-status').style.color = '#f59e0b';
+  });
+  el.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); el.blur(); } });
+});
+
+// Image replacement
+document.querySelectorAll('img').forEach(img => {
+  if(img.width < 40) return;
+  img.style.cursor = 'pointer';
+  img.title = 'اضغط لتغيير الصورة';
+  img.addEventListener('click', () => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => {
+      const r = new FileReader();
+      r.onload = e => {
+        img.src = e.target.result;
+        mtDirty = true;
+        document.getElementById('mt-status').textContent = 'تعديلات غير محفوظة';
+      };
+      r.readAsDataURL(inp.files[0]);
+    };
+    inp.click();
+  });
+});
+
+// Publish
+function mtPublish(){
+  if(!MT_CFG.token || !MT_CFG.repo){
+    alert('اضبط إعدادات GitHub من الصفحة الرئيسية أولاً');
+    return;
+  }
+  document.getElementById('mt-pub-info').innerHTML =
+    '<strong>المستودع:</strong> ' + MT_CFG.repo + '<br>' +
+    '<strong>الملف:</strong> newsletter_feb2026.html<br>' +
+    '<strong>الرابط بعد النشر:</strong><br>' +
+    '<code>' + MT_CFG.repo.split('/')[0] + '.github.io/' + MT_CFG.repo.split('/')[1] + '/newsletter_feb2026.html</code>';
+  document.getElementById('mt-modal').style.display = 'flex';
+}
+
+async function mtDoPublish(){
+  const btn = document.getElementById('mt-pub-btn');
+  btn.textContent = 'جاري النشر...';
+  btn.disabled = true;
+
+  // Remove toolbar before saving
+  document.getElementById('mt-toolbar').style.display = 'none';
+  document.getElementById('mt-modal').style.display = 'none';
+  const spacer = document.querySelector('[style*="height:56px"]');
+  if(spacer) spacer.style.display = 'none';
+
+  const content = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const encoded = btoa(unescape(encodeURIComponent(content)));
+  const [owner, repo] = MT_CFG.repo.split('/');
+  const path = 'newsletter_feb2026.html';
+
+  try {
+    let sha = null;
+    const check = await fetch(
+      'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path,
+      { headers:{ 'Authorization':'token ' + MT_CFG.token } }
+    );
+    if(check.ok){ sha = (await check.json()).sha; }
+
+    const body = { message: 'تحديث نشرة فبراير 2026', content: encoded, branch: MT_CFG.branch||'main' };
+    if(sha) body.sha = sha;
+
+    const res = await fetch(
+      'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path,
+      { method:'PUT', headers:{ 'Authorization':'token ' + MT_CFG.token, 'Content-Type':'application/json' }, body: JSON.stringify(body) }
+    );
+
+    if(res.ok){
+      alert('✅ تم النشر بنجاح!');
+      mtDirty = false;
+      document.getElementById('mt-status').textContent = 'منشور ✅';
+      document.getElementById('mt-status').style.color = '#22c55e';
+    } else {
+      const err = await res.json();
+      alert('❌ خطأ: ' + err.message);
+    }
+  } catch(e){ alert('❌ ' + e.message); }
+
+  document.getElementById('mt-toolbar').style.display = 'flex';
+  if(spacer) spacer.style.display = 'block';
+  btn.textContent = 'نشر الآن';
+  btn.disabled = false;
+  document.getElementById('mt-modal').style.display = 'none';
+}
+</script>
+
 <div class="envelope" id="envelope"><!-- بيتبنى بالـ JS --></div>
 
 <script>
